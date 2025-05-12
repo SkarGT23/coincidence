@@ -37,6 +37,23 @@ Esta es una aplicación desarrollada en Python con Django que incluye funcionali
 - `dist/`, `build/`: Carpetas de distribución y construcción.
 - `manage.py`: Script principal para comandos de Django.
 
+## Nueva funcionalidad: Búsqueda Automática de Coincidencias entre Archivos
+
+La aplicación ahora permite subir varios archivos de diferentes tipos (PDF, DOCX, TXT, XLSX, RTF, XML, ODT, CSV, JSON) y buscar coincidencias automáticas entre ellos **sin necesidad de ingresar una palabra clave**.
+
+- Utiliza la función `buscar_coincidencias_automaticas_v2` para comparar los archivos subidos y encontrar palabras o números que aparecen en más de un archivo.
+- La interfaz de búsqueda automática está disponible desde la página principal, mediante el botón "Búsqueda Automática (sin palabra clave)".
+- El resultado muestra la lista de coincidencias encontradas y los archivos donde aparece cada coincidencia.
+
+## Cómo usar la búsqueda automática
+
+1. Haz clic en el botón "Búsqueda Automática (sin palabra clave)" en la página principal.
+2. Sube al menos dos archivos de los formatos soportados.
+3. Haz clic en "Subir y buscar coincidencias".
+4. Revisa la tabla de coincidencias encontradas.
+
+No es necesario ingresar ningún término de búsqueda para esta funcionalidad.
+
 ## Dependencias principales
 
 - Django

@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Buscar coincidencias automáticas entre archivos</h2>
+    <form method="POST" enctype="multipart/form-data" id="autoForm">
+    {% csrf_token %}
+    <input type="file" name="archivos" id="realInput" multiple />
+    <label for="dropzone">Arrastra y suelta los archivos aquí:</label>
+    <div id="dropzone" class="dropzone">Suelta tus archivos aquí o haz clic para seleccionarlos</div>
+    <div id="lista-archivos">
+        <p><strong>Archivos cargados: <span id="cantidad">0</span></strong></p>
+        <ul id="nombres"></ul>
+    </div>
+    <button type="submit" class="btn btn-primary">Subir y buscar coincidencias</button>
+</form>
+<script>
+    // Validación para que no se pueda enviar el formulario si hay menos de 2 archivos
+    document.getElementById('autoForm').addEventListener('submit', function(e) {
+        if (archivosCargados.length < 2) {
+            e.preventDefault();
+            alert('Debes subir al menos dos archivos para comparar.');
+            return false;
+        }
+    });
+    const dropzone = document.getElementById('dropzone');
+    const realInput = document.getElementById('realInput');
+    const nombresUl = document.getElementById('nombres');
+    const cantidadSpan = document.getElementById('cantidad');
+    const listaArchivos = document.getElementById('lista-archivos');
+    let archivosCargados = [];
+
+    dropzone.addEventListener('click', () => realInput.click());
+    dropzone.addEventListener('dragover', e => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+    });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        manejarArchivos(e.dataTransfer.files);
+    });
+    realInput.addEventListener('change', () => manejarArchivos(realInput.files));
+
+    function manejarArchivos(files) {
+        for (let i = 0; i < files.length; i++) {
+            if (!archivosCargados.some(a => a.name === files[i].name)) {
+                archivosCargados.push(files[i]);
+            }
+        }
+        actualizarLista();
+    }
+
+    function actualizarLista() {
+        nombresUl.innerHTML = '';
+        cantidadSpan.textContent = archivosCargados.length;
+        archivosCargados.forEach((archivo, index) => {
+            const li = document.createElement('li');
+            li.innerHTML = `${archivo.name} <button type="button" class="remove" data-index="${index}">Eliminar</button>`;
+            nombresUl.appendChild(li);
+        });
+        listaArchivos.style.display = archivosCargados.length ? 'block' : 'none';
+        const dt = new DataTransfer();
+        archivosCargados.forEach(file => dt.items.add(file));
+        realInput.files = dt.files;
+    }
+
+    nombresUl.addEventListener('click', e => {
+        if (e.target.classList.contains('remove')) {
+            const index = e.target.getAttribute('data-index');
+            archivosCargados.splice(index, 1);
+            actualizarLista();
+        }
+    });
+</script>
+    {% if coincidencias %}
+        <h4>Cantidad de coincidencias encontradas: {{ coincidencias|length }}</h4>
+        <table class="table table-striped table-bordered mt-3">
+            <thead>
+                <tr>
+                    <th>Coincidencia</th>
+                    <th>Tipo</th>
+                    <th>Archivos donde aparece</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in coincidencias %}
+                <tr>
+                    <td><strong>{{ c.coincidencia }}</strong></td>
+                    <td>{{ c.tipo|title }}</td>
+                    <td>
+                        <ul style="margin-bottom:0;">
+                        {% for a in c.archivos %}
+                            <li>{{ a }}</li>
+                        {% endfor %}
+                        </ul>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% elif coincidencias is not None %}
+        <div class="alert alert-warning">No se encontraron coincidencias relevantes entre los archivos.</div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -13,5 +13,7 @@ urlpatterns = [
 views_path = os.path.join(os.path.dirname(__file__), 'views.py')
 if os.path.exists(views_path):
     views = importlib.import_module('.views', __package__)
+    urlpatterns.append(path('buscar_auto/', views.buscar_coincidencias_auto, name='buscar_auto'))
     urlpatterns.append(path('', views.upload_y_buscar, name='upload_y_buscar'))
+    
 

@@ -178,6 +178,46 @@ def procesar_archivos(archivos, busqueda):
     return resultados
 #----------------------------------
 
+# Lista de stopwords en español (puedes ampliarla)
+STOPWORDS = set([
+    'el', 'la', 'los', 'las', 'de', 'del', 'y', 'a', 'en', 'con', 'por', 'para', 'es', 'un', 'una', 'unos', 'unas', 'al', 'o', 'u', 'que', 'se', 'su', 'sus', 'lo', 'le', 'les', 'mi', 'mis', 'tu', 'tus', 'su', 'sus', 'como', 'más', 'pero', 'ya', 'si', 'no', 'ni', 'ha', 'han', 'fue', 'son', 'era', 'ser', 'está', 'están', 'estaba', 'estaban', 'hay', 'y', 'e', 'de', 'el', 'la', 'a', 'en', 'del', 'al', 'lo', 'las', 'los', 'por', 'con', 'para', 'mi', 'tu', 'su', 'sus', 'le', 'les', 'me', 'te', 'se', 'nos', 'os', 'eso', 'esa', 'ese', 'esos', 'esas', 'este', 'esta', 'estos', 'estas', 'aquel', 'aquella', 'aquellos', 'aquellas', 'yo', 'tú', 'él', 'ella', 'nosotros', 'vosotros', 'ellos', 'ellas', 'usted', 'ustedes', 'do', 'da', 'donde', 'cuando', 'quien', 'cual', 'cuales', 'cuyo', 'cuyos', 'cuyas', 'cualquiera', 'cualquier', 'etc'
+])
+import collections
+import re
+
+def upload_y_buscar(request):
+    archivos = request.session.get('archivos', [])
+    resultados = None
+    coincidencias_auto = None
+    busqueda = ''
+    argumentos = ''
+
+    if request.method == 'POST':
+        form = ArchivoUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            nuevos_archivos = request.FILES.getlist('archivos')
+            archivos.extend([archivo.name for archivo in nuevos_archivos])
+            request.session['archivos'] = archivos
+
+            busqueda = form.cleaned_data['busqueda'].strip()
+            if not busqueda:
+                # Si no hay búsqueda, hacer coincidencia automática
+                coincidencias_auto = buscar_coincidencias_automaticas_v2(nuevos_archivos)
+            else:
+                resultados = procesar_archivos(nuevos_archivos, busqueda)
+            # ... resto del código ...
+    else:
+        form = ArchivoUploadForm()
+
+    return render(request, 'buscador/buscar.html', {
+        'form': form,
+        'resultados': resultados,
+        'coincidencias_auto': coincidencias_auto,
+        'archivos': archivos,
+        'busqueda': busqueda,
+        'argumentos': argumentos,
+        # ... otros contextos ...
+    })
 
 # Función mejorada para descomponer y obtener la base de un carácter
 def descomponer(c):
@@ -623,3 +663,80 @@ def buscar(request):
     
     # Pasar la información a la plantilla
     return render(request, 'home.html', {'licencia_caducada': licencia_caducada})
+
+
+def buscar_coincidencias_automaticas_v2(archivos):
+    """
+    Busca coincidencias automáticas entre los archivos subidos.
+    Coincidencia = palabra/frase que aparece en más de un archivo (ignorando stopwords y palabras cortas).
+    Retorna una lista de dicts: {'coincidencia': str, 'tipo': str, 'archivos': [nombres]}
+    """
+    import collections
+    MIN_LEN = 4  # longitud mínima de palabra para considerar
+    textos = {}
+    archivos_nombres = []
+    # Extraer texto de cada archivo
+    for archivo in archivos:
+        nombre = getattr(archivo, 'name', str(archivo))
+        archivos_nombres.append(nombre)
+        ext = nombre.lower().split('.')[-1]
+        try:
+            if ext == 'pdf':
+                contenido, _ = extraer_texto_pdf(archivo, [], [])
+            elif ext == 'docx':
+                contenido, _ = extraer_texto_docx(archivo, [], [])
+            elif ext in ['xls', 'xlsx']:
+                contenido, _ = extraer_texto_excel(archivo, [], [])
+            elif ext == 'txt':
+                contenido, _ = extraer_texto_txt(archivo, [], [])
+            elif ext == 'rtf':
+                contenido, _ = extraer_texto_rtf(archivo, [], [])
+            elif ext == 'xml':
+                contenido, _ = extraer_texto_xml(archivo, [], [])
+            elif ext == 'odt':
+                contenido, _ = extraer_texto_odt(archivo, [], [])
+            elif ext == 'csv':
+                contenido, _ = extraer_texto_csv(archivo, [], [])
+            elif ext == 'json':
+                contenido, _ = extraer_texto_json(archivo, [], [])
+            else:
+                contenido = ''
+        except Exception:
+            contenido = ''
+        # Normalizar y dividir en palabras
+        palabras = set(normalizar_texto(contenido).split())
+        palabras = set(p for p in palabras if p not in STOPWORDS and len(p) >= MIN_LEN)
+        textos[nombre] = palabras
+    # Buscar coincidencias (palabras en más de un archivo)
+    contador = collections.defaultdict(list)  # palabra -> lista de archivos
+    for nombre, palabras in textos.items():
+        for palabra in palabras:
+            contador[palabra].append(nombre)
+    coincidencias = []
+    for palabra, files in contador.items():
+        if len(files) > 1:
+            coincidencias.append({
+                'coincidencia': palabra,
+                'tipo': 'palabra',
+                'archivos': files
+            })
+    coincidencias.sort(key=lambda x: (-len(x['archivos']), x['coincidencia']))
+    return coincidencias
+
+def buscar_coincidencias_auto(request):
+    coincidencias_auto = None
+    archivos = []
+    mensaje = None
+    if request.method == 'POST':
+        archivos = request.FILES.getlist('archivos')
+        if archivos and len(archivos) > 1:
+            coincidencias_auto = buscar_coincidencias_automaticas_v2(archivos)
+            if not coincidencias_auto:
+                mensaje = "No se encontraron coincidencias relevantes entre los archivos."
+        else:
+            mensaje = "Debes subir al menos dos archivos para comparar."
+    return render(request, 'buscador/buscar_auto.html', {
+        'coincidencias': coincidencias_auto,
+        'mensaje': mensaje,
+        'archivos': archivos,
+    })

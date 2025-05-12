@@ -14,15 +14,21 @@ def mayusculas(texto):
 
 @register.filter(name='resaltar')
 def resaltar(texto, argumentos):
-    try:
-        # argumentos = "palabra1|#ffff00;palabra2|#00ff00;palabra3|#0000ff;palabra4|#ff0000"
-        pares = [arg.split('|') for arg in argumentos.split(';')]
-    except Exception:
-        return texto  # Si hay error en el formato, devuelve el texto original
-
+    if not argumentos:
+        return texto
+    pares = []
+    for arg in argumentos.split(';'):
+        if not arg.strip():
+            continue
+        if '|' not in arg:
+            continue  # ignora argumentos mal formados
+        partes = arg.split('|')
+        if len(partes) != 2:
+            continue
+        palabra, color = partes
+        pares.append((palabra, color))
     if not texto or not pares:
         return texto
-
     for palabra, color in pares:
         if palabra.strip():
             regex = re.compile(re.escape(palabra), re.IGNORECASE)
@@ -30,5 +36,4 @@ def resaltar(texto, argumentos):
                 lambda match: f'<mark style="background-color: {color}">{match.group(0)}</mark>',
                 texto
             )
-
     return mark_safe(texto)

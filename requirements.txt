@@ -17,3 +17,4 @@ striprtf==0.0.29
 typing_extensions==4.13.2
 tzdata==2025.2
 cryptography==42.0.5
+# Todas las dependencias necesarias para la búsqueda automática ya están presentes.
