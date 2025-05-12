@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Buscador de Archivos</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f7fa;
+        }
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+        }
+        main {
+            padding: 30px 20px;
+            max-width: 800px;
+            margin: auto;
+        }
+        form {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+        label {
+            display: block;
+            margin-top: 15px;
+            font-weight: 600;
+        }
+        input[type="text"], input[type="color"] {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .dropzone {
+            margin-top: 10px;
+            padding: 30px;
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            background-color: #f0f0f0;
+            text-align: center;
+            transition: border-color 0.3s;
+        }
+        .dropzone.dragover {
+            border-color: #3498db;
+            background-color: #e8f4fd;
+        }
+        #lista-archivos {
+            display: none;
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+        #lista-archivos ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        #lista-archivos li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 0;
+        }
+        #lista-archivos button.remove {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 3px 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        button {
+            width: 100%;
+            margin-top: 20px;
+            background-color: #3498db;
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .mensaje, .resultado {
+            margin-top: 25px;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .error-message {
+            background-color: #fddede;
+            color: #a94442;
+            border-left: 5px solid #e74c3c;
+        }
+        .info-message {
+            background-color: #e7f3fe;
+            color: #31708f;
+            border-left: 5px solid #5bc0de;
+        }
+        .resultado {
+            background-color: #ffffff;
+            border-left: 5px solid #2ecc71;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .coincidencia {
+            margin-left: 20px;
+        }
+        mark {
+            font-weight: bold;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        h2 {
+            margin-top: 40px;
+        }
+    </style>
+</head>
+<body>
+<header>
+    <h1>Buscador de Palabras en Archivos</h1>
+</header>
+<main>
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        {% load custom_filters %}
+
+        <input type="file" name="archivos" id="realInput" multiple hidden />
+
+        <label for="dropzone">Arrastra y suelta los archivos aquí:</label>
+        <div id="dropzone" class="dropzone">Suelta tus archivos aquí o haz clic para seleccionarlos</div>
+
+        <div id="lista-archivos">
+            <p><strong>Archivos cargados: <span id="cantidad">0</span></strong></p>
+            <ul id="nombres"></ul>
+        </div>
+
+        <label for="busqueda">Término de búsqueda:</label>
+        <input type="text" name="busqueda" id="busqueda" placeholder="Escribe una palabra o frase..." required />
+
+        <button type="submit">Buscar</button>
+
+        <div class="info-message" style="margin-top: 15px;">
+            <p><strong>Permite subir varios archivos</strong> en los formatos: PDF, TXT, DOCX, XLSX, RTF, XML, ODT, CSV y .JASON.</p>
+            <p><strong>Puedes elegir varias palabras o numeros a la vez </strong> separadas por espacios:</p>
+            <p><em>                              Ejemplo:</em> Ciudad Asturias 2025 manzana 13</p>
+            <p><strong>Escribe los términos o frases que deseas buscar</strong>. Puedes usar comillas para frases exactas:</p>
+            <p><em>                              Ejemplo:</em> contrato "fecha de vencimiento" cliente</p>
+        </div>
+    </form>
+
+    {% if resultados %}
+        <h2>Resultados de búsqueda: "{{ busqueda }}"</h2>
+        {% for resultado in resultados %}
+            <div class="resultado">
+                <h3>Archivo: {{ resultado.archivo }}</h3>
+                <p><strong>Tipo:</strong> {{ resultado.tipo }}</p>
+                {% if resultado.total %}
+                    <p><strong>Coincidencias encontradas:</strong> {{ resultado.total }}</p>
+                    <ul>
+                        {% for coincidencia in resultado.detalles %}
+                            <li class="coincidencia">
+                                {% if coincidencia.pagina %}<strong>Página:</strong> {{ coincidencia.pagina }} -{% endif %}
+                                {% if coincidencia.linea %}<strong>Línea:</strong> {{ coincidencia.linea }} -{% endif %}
+                                {% if coincidencia.celda %}<strong>Celda:</strong> {{ coincidencia.celda }} -{% endif %}
+                                {% if coincidencia.parrafo %}<strong>Párrafo:</strong> {{ coincidencia.parrafo }} -{% endif %}
+                                {% if coincidencia.etiqueta %}<strong>Etiqueta:</strong> {{ coincidencia.etiqueta }} -{% endif %}
+                                <span class="coincidencia-resaltada">
+                                    {{ coincidencia.contenido|resaltar:argumentos }}
+                                </span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="error-message">No se encontraron coincidencias.</p>
+                {% endif %}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    {% if busqueda %}
+        <div class="info-message">
+            Palabra/frase buscada: <strong>{{ busqueda }}</strong>
+        </div>
+    {% endif %}
+
+    {% if error %}<div class="error-message">{{ error }}</div>{% endif %}
+    {% if info %}<div class="info-message">{{ info }}</div>{% endif %}
+
+    {% if texto %}
+        <p>{{ texto|mayusculas }}</p>
+        {# logger.debug(f"Resaltando '{busqueda}' con color '{color}' en texto: {texto}") #}
+    {% endif %}
+
+    <!--  -->
+{% if licencia_caducada %}
+<div class="aviso-licencia-caducada">
+    <p>¡Licencia caducada! La funcionalidad de la aplicación ha sido desactivada.</p>
+</div>
+{% else %}
+<div class="aviso-licencia-activa">
+    <p>La licencia está activa. Puedes usar la aplicación normalmente.</p>
+</div>
+{% endif %}
+
+</main>
+<script>
+    const dropzone = document.getElementById('dropzone');
+    const realInput = document.getElementById('realInput');
+    const nombresUl = document.getElementById('nombres');
+    const cantidadSpan = document.getElementById('cantidad');
+    const listaArchivos = document.getElementById('lista-archivos');
+    let archivosCargados = [];
+
+    dropzone.addEventListener('click', () => realInput.click());
+    dropzone.addEventListener('dragover', e => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+    });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        manejarArchivos(e.dataTransfer.files);
+    });
+    realInput.addEventListener('change', () => manejarArchivos(realInput.files));
+
+    function manejarArchivos(files) {
+        for (let i = 0; i < files.length; i++) {
+            if (!archivosCargados.some(a => a.name === files[i].name)) {
+                archivosCargados.push(files[i]);
+            }
+        }
+        actualizarLista();
+    }
+
+    function actualizarLista() {
+        nombresUl.innerHTML = '';
+        cantidadSpan.textContent = archivosCargados.length;
+        archivosCargados.forEach((archivo, index) => {
+            const li = document.createElement('li');
+            li.innerHTML = `${archivo.name} <button type="button" class="remove" data-index="${index}">Eliminar</button>`;
+            nombresUl.appendChild(li);
+        });
+        listaArchivos.style.display = archivosCargados.length ? 'block' : 'none';
+        const dt = new DataTransfer();
+        archivosCargados.forEach(file => dt.items.add(file));
+        realInput.files = dt.files;
+    }
+
+    nombresUl.addEventListener('click', e => {
+        if (e.target.classList.contains('remove')) {
+            const index = e.target.getAttribute('data-index');
+            archivosCargados.splice(index, 1);
+            actualizarLista();
+        }
+    });
+
+    document.querySelector('form').addEventListener('submit', function (e) {
+        const tiposPermitidos = ['pdf', 'txt', 'docx', 'xlsx', 'rtf', 'xml'];
+        for (let archivo of archivosCargados) {
+            const ext = archivo.name.split('.').pop().toLowerCase();
+            if (!tiposPermitidos.includes(ext)) {
+                e.preventDefault();
+                alert('Formato no permitido. Solo se permiten PDF, TXT, DOCX, XLSX, RTF, XML.');
+                return;
+            }
+        }
+    });
+    
+</script>
+</body>
+</html>
